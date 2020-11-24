@@ -23,7 +23,11 @@ LANDER_SECTOR = random.randint(1,24)
 LANDER_X = random.randint(2,11)
 LANDER_Y = random.randint(2,11)
 
-# MAP
+TILE_SIZE = 30
+
+###############
+##    MAP    ##
+############### 
 
 MAP_WIDTH = 5
 MAP_HEIGHT = 10
@@ -282,6 +286,26 @@ assert check_counter == 161, "Expected 161 scenery items"
 assert checksum == 200095, "Error in scenery data"
 print("Scenery checksum: " + str(checksum))
 
+for room in range(1, 26):# Add random scenery in planet locations.
+    if room != 13: # Skip room 13.
+        scenery_item = random.choice([16, 28, 29, 30])
+        scenery[room] = [[scenery_item, random.randint(2, 10),
+                          random.randint(2, 10)]]
+        
+# Use loops to add fences to the planet surface rooms.
+for room_coordinate in range(0, 13):
+    for room_number in [1, 2, 3, 4, 5]: # Add top fence
+        scenery[room_number] += [[31, 0, room_coordinate]]
+    for room_number in [1, 6, 11, 16, 21]: # Add left fence
+        scenery[room_number] += [[31, room_coordinate, 0]]
+    for room_number in [5, 10, 15, 20, 25]: # Add right fence
+        scenery[room_number] += [[31, room_coordinate, 12]]
+
+del scenery[21][-1] # Delete last fence panel in Room 21
+del scenery[25][-1] # Delete last fence panel in Room 25
+           
+
+
 ###############
 ## MAKE MAP  ##
 ###############
@@ -351,7 +375,24 @@ def generate_map():
             room_map[room_height-1][middle_column] = floor_type 
             room_map[room_height-1][middle_column + 1] = floor_type
             room_map[room_height-1][middle_column - 1] = floor_type
-# Explorer
+
+    if current_room in scenery:
+        for this_scenery in scenery[current_room]: 
+            scenery_number = this_scenery[0]
+            scenery_y = this_scenery[1]
+            scenery_x = this_scenery[2]
+            room_map[scenery_y][scenery_x] = scenery_number
+
+            image_here = objects[scenery_number][0]
+            image_width = image_here.get_width()
+            image_width_in_tiles = int(image_width / TILE_SIZE)
+
+            for tile_number in range(1, image_width_in_tiles):
+                room_map[scenery_y][scenery_x + tile_number] = 255
+
+###############
+##  Explorer ##
+###############
 
 def draw():
     global room_height,room_width, room_map
