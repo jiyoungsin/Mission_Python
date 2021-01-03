@@ -53,6 +53,46 @@ player_frame = 0
 player_image = PLAYER[player_direction][player_frame]
 player_offset_x, player_offset_y = 0, 0
 
+
+PLAYER_SHADOW = {
+    "left": [images.spacesuit_left_shadow, images.spacesuit_left_1_shadow,
+             images.spacesuit_left_2_shadow, images.spacesuit_left_3_shadow,
+             images.spacesuit_left_3_shadow
+             ],
+    "right": [images.spacesuit_right_shadow, images.spacesuit_right_1_shadow,
+              images.spacesuit_right_2_shadow,
+              images.spacesuit_right_3_shadow, images.spacesuit_right_3_shadow
+              ],
+    "up": [images.spacesuit_back_shadow, images.spacesuit_back_1_shadow,
+           images.spacesuit_back_2_shadow, images.spacesuit_back_3_shadow,
+           images.spacesuit_back_3_shadow
+           ],
+    "down": [images.spacesuit_front_shadow, images.spacesuit_front_1_shadow,
+             images.spacesuit_front_2_shadow, images.spacesuit_front_3_shadow,
+             images.spacesuit_front_3_shadow
+             ]
+    }
+
+player_image_shadow = PLAYER_SHADOW["down"][0]
+
+PILLARS = [
+    images.pillar, images.pillar_95, images.pillar_80,
+    images.pillar_60, images.pillar_50
+    ]
+
+wall_transparency_frame = 0
+
+BLACK = (0, 0, 0)
+BLUE = (0, 155, 255)
+YELLOW = (255, 255, 0)
+WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
+RED = (128, 0, 0)
+
+air, energy = 100, 100
+suit_stitched, air_fixed = False, False
+launch_frame = 0
+
 ###############
 ##    MAP    ##
 ############### 
@@ -418,25 +458,126 @@ def generate_map():
             for tile_number in range(1, image_width_in_tiles):
                 room_map[scenery_y][scenery_x + tile_number] = 255
 
+
 ###############
-##  Explorer ##
+## GAME LOOP ##
 ###############
 
-def draw():
-    global room_height,room_width, room_map
-    generate_map()
-    screen.clear()
-##    room_map[2][4] = 7
-##    room_map[2][6] = 6
-##    room_map[1][1] = 8
-##    room_map[1][2] = 9
-##    room_map[1][8] = 12
-##    room_map[1][9] = 9
-    
-    for y in range(room_height):
-        for x in range(room_width):
-            if room_map[y][x] != 255:
-                image_to_draw = objects[room_map[y][x]][0]
-                screen.blit(image_to_draw,
-                            (top_left_x + (x*30),
-                             top_left_y + (y*30) - image_to_draw.get_height()))
+def game_loop():
+    global player_x, player_y, current_room
+    global from_player_x, from_player_y
+    global player_image, player_image_shadow 
+    global selected_item, item_carrying, energy 
+    global player_offset_x, player_offset_y
+    global player_frame, player_direction
+
+    if game_over:
+        return
+
+    if player_frame > 0:
+        player_frame += 1
+        time.sleep(0.05)
+        if player_frame == 5:
+            player_frame = 0
+            player_offset_x = 0
+            player_offset_y = 0
+
+# save player's current position
+    old_player_x = player_x
+    old_player_y = player_y
+
+# move if key is pressed
+    if player_frame == 0:
+        if keyboard.right:
+            from_player_x = player_x
+            from_player_y = player_y
+            player_x += 1
+            player_direction = "right"
+            player_frame = 1
+        elif keyboard.left: #elif stops player making diagonal movements
+            from_player_x = player_x
+            from_player_y = player_y
+            player_x -= 1
+            player_direction = "left"
+            player_frame = 1
+        elif keyboard.up:
+            from_player_x = player_x
+            from_player_y = player_y
+            player_y -= 1
+            player_direction = "up"
+            player_frame = 1
+        elif keyboard.down:
+            from_player_x = player_x
+            from_player_y = player_y
+            player_y += 1
+            player_direction = "down"
+            player_frame = 1        
+
+# check for exiting the room
+    if player_x == room_width: # through door on RIGHT
+        #clock.unschedule(hazard_move)
+        current_room += 1
+        generate_map()
+        player_x = 0 # enter at left
+        player_y = int(room_height / 2) # enter at door
+        player_frame = 0
+        #start_room()
+        return
+
+    if player_x == -1: # through door on LEFT
+        #clock.unschedule(hazard_move)
+        current_room -= 1
+        generate_map()
+        player_x = room_width - 1  # enter at right
+        player_y = int(room_height / 2) # enter at door
+        player_frame = 0
+        #start_room()
+        return
+
+    if player_y == room_height: # through door at BOTTOM
+        #clock.unschedule(hazard_move)
+        current_room += MAP_WIDTH
+        generate_map()
+        player_y = 0 # enter at top
+        player_x = int(room_width / 2) # enter at door
+        player_frame = 0
+        #start_room()
+        return
+
+    if player_y == -1: # through door at TOP
+        #clock.unschedule(hazard_move)
+        current_room -= MAP_WIDTH
+        generate_map()
+        player_y = room_height - 1 # enter at bottom
+        player_x = int(room_width / 2) # enter at door
+        player_frame = 0
+        #start_room()
+        return 
+
+# If the player is standing somewhere they shouldn't, move them back.
+    if room_map[player_y][player_x] not in items_player_may_stand_on:
+    #\
+               #or hazard_map[player_y][player_x] != 0:
+        player_x = old_player_x
+        player_y = old_player_y
+        player_frame = 0
+
+    if room_map[player_y][player_x] == 48: # toxic floor
+        deplete_energy(1)
+
+    if player_direction == "right" and player_frame > 0:
+        player_offset_x = -1 + (0.25 * player_frame)
+    if player_direction == "left" and player_frame > 0:
+        player_offset_x = 1 - (0.25 * player_frame)
+    if player_direction == "up" and player_frame > 0:
+        player_offset_y = 1 - (0.25 * player_frame)
+    if player_direction == "down" and player_frame > 0:
+        player_offset_y = -1 + (0.25 * player_frame)
+
+
+
+###############
+##   START   ##
+###############
+            
+clock.schedule_interval(game_loop, 0.03)
